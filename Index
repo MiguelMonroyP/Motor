@@ -1,0 +1,708 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Explosionado del motor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=JetBrains+Mono:wght@500;600&family=STIX+Two+Text:ital@0;1&display=swap">
+<style>
+/* Layout: banco de trabajo 3D a todo el ancho con el panel de la ley activa a la derecha; debajo, la tabla del
+   recorrido de cada magnitud. Paleta del curso: cobre como acento, fases RETIE y colores fijos por tipo de vector. */
+:root {
+  --bg: #EEF1F4; --panel: #FFFFFF; --panel-2: #F5F7F9; --ink: #15202B; --muted: #566577; --line: #D3DBE3;
+  --copper: #B4621C; --copper-soft: #F6E7D8; --stage: #E3E8EE; --stage-2: #CDD5DE;
+  --phase-a: #C99500; --phase-b: #1F5FBF; --phase-c: #C72F2F;
+  --v-n: #E0742A; --v-s: #138C95; --v-emf: #7A45D6; --v-force: #1F8F4E; --v-tau: #2F6690; --v-rel: #6B7785; --v-flux: #3A4652; --v-cur: #9B5CF0;
+  --m-paint: #50687F; --m-lam: #8C97A2; --m-copper: #B8733A; --m-alu: #C7CDD3; --m-shaft: #AEB6BE; --m-cut: #E2B47C; --m-dark: #3B434C;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", "Consolas", "SFMono-Regular", monospace;
+  --math: "STIX Two Text", "Cambria Math", "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0E141A; --panel: #151E27; --panel-2: #1A2530; --ink: #E5ECF2; --muted: #93A3B4; --line: #2A3845;
+  --copper: #E38B3E; --copper-soft: #3A2817; --stage: #0B1117; --stage-2: #1C2733;
+  --phase-a: #F1C232; --phase-b: #5F9DF2; --phase-c: #F26560;
+  --v-n: #F38E44; --v-s: #3CBAC1; --v-emf: #A98BF5; --v-force: #4FD486; --v-tau: #6FA8D6; --v-rel: #A3B0BE; --v-flux: #D5DEE7; --v-cur: #C3A6FF; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0E141A; --panel: #151E27; --panel-2: #1A2530; --ink: #E5ECF2; --muted: #93A3B4; --line: #2A3845;
+  --copper: #E38B3E; --copper-soft: #3A2817; --stage: #0B1117; --stage-2: #1C2733;
+  --phase-a: #F1C232; --phase-b: #5F9DF2; --phase-c: #F26560;
+  --v-n: #F38E44; --v-s: #3CBAC1; --v-emf: #A98BF5; --v-force: #4FD486; --v-tau: #6FA8D6; --v-rel: #A3B0BE; --v-flux: #D5DEE7; --v-cur: #C3A6FF; color-scheme: dark }
+
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+body { background: var(--bg); color: var(--ink); font: 400 16px/1.55 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px }
+.wrap { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; margin: 0; text-wrap: balance; letter-spacing: .01em; line-height: 1.05 }
+h1 { font-size: clamp(32px, 4.4vw, 48px) }
+h2 { font-size: 26px } h3 { font-size: 19px }
+p { margin: 0 }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--copper) }
+.lede { color: var(--muted); max-width: 75ch }
+.m { font-family: var(--math); font-size: 1.07em }
+.m i, .eq i { font-style: italic }
+button:focus-visible, input:focus-visible, select:focus-visible, .part-chip:focus-visible { outline: 2px solid var(--copper); outline-offset: 2px }
+
+.steps { display: flex; flex-wrap: wrap; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 5px }
+.steps button { flex: 1 1 auto; font: 600 15px/1.2 var(--body); color: var(--muted); background: none; border: 0; padding: 9px 14px; border-radius: 8px; cursor: pointer; display: flex; gap: 8px; align-items: center; justify-content: center }
+.steps button .n { font: 600 12px var(--mono); width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; border: 1.5px solid currentColor }
+.steps button[aria-selected="true"] { background: var(--ink); color: var(--bg) }
+
+.bench { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 18px; align-items: start }
+.viewer { border-radius: 14px; overflow: hidden; background: var(--stage); border: 1px solid var(--line); height: clamp(500px, 78vh, 840px); display: flex; flex-direction: column }
+.stage3d { position: relative; flex: 1 1 auto; min-height: 0; touch-action: none }
+.stage3d canvas { display: block; width: 100%; height: 100% }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden }
+.lbl { position: absolute; left: 0; top: 0; white-space: nowrap; font: 600 12.5px/1.2 var(--body); padding: 4px 8px; border-radius: 6px; background: var(--panel); color: var(--ink);
+  border: 1.5px solid var(--c, var(--line)); box-shadow: 0 1px 3px rgba(0,0,0,.12); will-change: transform }
+.lbl.part { pointer-events: auto; cursor: pointer }
+.lbl.part.sel { background: var(--copper); color: #fff; border-color: var(--copper) }
+.lbl.vec { font: 600 13px/1.1 var(--math); font-style: italic; color: var(--c); background: color-mix(in srgb, var(--panel) 88%, transparent) }
+.hud { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; background: var(--panel); border-top: 1px solid var(--line); padding: 9px 12px; font-size: 13.5px }
+.hud label { display: inline-flex; align-items: center; gap: 6px; font-weight: 600 }
+.hud input[type="range"] { width: 130px; accent-color: var(--copper) }
+.hud select { font: 500 13px var(--body); padding: 3px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink) }
+.btn { font: 600 13.5px var(--body); padding: 6px 11px; border-radius: 7px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); cursor: pointer }
+.btn.primary { background: var(--ink); color: var(--bg); border-color: var(--ink) }
+.hint { position: absolute; top: 10px; left: 12px; font-size: 12.5px; color: var(--muted); background: color-mix(in srgb, var(--panel) 85%, transparent); padding: 4px 8px; border-radius: 6px; pointer-events: none }
+.clock { position: absolute; top: 10px; right: 12px; font: 600 12px var(--mono); color: var(--muted); background: color-mix(in srgb, var(--panel) 85%, transparent); padding: 4px 8px; border-radius: 6px; pointer-events: none }
+.nogl { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: var(--muted) }
+
+.side { display: grid; gap: 14px; min-width: 0 }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 10px; min-width: 0 }
+.card .tag { font: 600 11.5px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--copper) }
+.where { border-left: 3px solid var(--copper); padding: 4px 0 4px 12px; font-size: 15px }
+.eq { font-family: var(--math); font-size: 22px; padding: 10px 14px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; overflow-x: auto; white-space: nowrap }
+.eq small { font: 500 12px var(--body); color: var(--muted); display: block; white-space: normal; margin-top: 2px }
+.legend { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; font-size: 14px; line-height: 1.35 }
+.legend li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 8px; align-items: start }
+.sw { width: 26px; height: 10px; border-radius: 3px; margin-top: 5px; background: var(--c); position: relative }
+.sw.arrow::after { content: ""; position: absolute; right: -6px; top: -4px; border-left: 8px solid var(--c); border-top: 9px solid transparent; border-bottom: 9px solid transparent }
+.sw.dot { width: 10px; height: 10px; border-radius: 50%; margin-left: 8px }
+.nums { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px }
+.nums div { background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 6px 9px; min-width: 0 }
+.nums dt { font-size: 12px; color: var(--muted) } .nums dd { margin: 0; font: 600 15px var(--mono); white-space: nowrap }
+.note { font-size: 13.5px; color: var(--muted) }
+.parts { display: flex; flex-wrap: wrap; gap: 6px }
+.part-chip { font: 600 12.5px var(--body); padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); cursor: pointer }
+.part-chip[aria-pressed="true"] { background: var(--copper); border-color: var(--copper); color: #fff }
+.part-info h3 { font-size: 20px }
+.part-info dl { margin: 0; display: grid; gap: 6px; font-size: 14.5px }
+.part-info dt { font-weight: 700; font-size: 12.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em }
+.part-info dd { margin: 0 }
+
+.route { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px }
+table { border-collapse: collapse; width: 100%; min-width: 860px; font-size: 14.5px }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top }
+tr:last-child td { border-bottom: 0 }
+th { font: 600 11.5px var(--mono); letter-spacing: .07em; text-transform: uppercase; color: var(--muted); background: var(--panel-2) }
+td.sym { font-family: var(--math); font-style: italic; font-size: 19px; white-space: nowrap }
+td.sym .sw { display: inline-block; vertical-align: middle; margin: 0 8px 0 0 }
+
+@media (max-width: 1100px) { .bench { grid-template-columns: minmax(0, 1fr) } .side { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) } }
+@media (max-width: 640px) { .viewer { height: 74vh; min-height: 520px } .steps button { flex: 1 1 40%; font-size: 14px; padding: 8px } .hud input[type="range"] { width: 100px } .hint { display: none } }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:8px">
+    <div class="eyebrow">Campos Electromagnéticos · Motor de inducción trifásico · 4 polos, 220 V, 60 Hz</div>
+    <h1>Explosionado del motor</h1>
+    <p class="lede">Un motor real separado pieza por pieza. Recorra las tres leyes en orden y vea en qué parte ocurre cada una, por dónde circula cada magnitud y hacia dónde apunta cada vector.</p>
+  </header>
+
+  <div class="steps" role="tablist" aria-label="Recorrido">
+    <button role="tab" id="st-despiece" data-step="despiece" aria-selected="true"><span class="n">0</span>Despiece</button>
+    <button role="tab" id="st-ampere" data-step="ampere" aria-selected="false"><span class="n">1</span>Ampère: la corriente crea el campo</button>
+    <button role="tab" id="st-faraday" data-step="faraday" aria-selected="false"><span class="n">2</span>Faraday: el campo induce en el rotor</button>
+    <button role="tab" id="st-lorentz" data-step="lorentz" aria-selected="false"><span class="n">3</span>Lorentz: fuerza y par</button>
+    <button role="tab" id="st-todo" data-step="todo" aria-selected="false"><span class="n">∑</span>Todo junto</button>
+  </div>
+
+  <div class="bench">
+    <div class="viewer">
+      <div class="stage3d" id="viewer">
+        <div class="labels" id="labels"></div>
+        <div class="hint" id="hint">Arrastre para girar · rueda o pellizco para acercar · toque una pieza</div>
+        <div class="clock" id="clock"></div>
+      </div>
+      <div class="hud">
+        <label for="in-explode">Separar <input id="in-explode" type="range" min="0" max="1" step="0.01" value="1"></label>
+        <label><input type="checkbox" id="chk-cut"> Corte</label>
+        <label><input type="checkbox" id="chk-cage"> Solo la jaula</label>
+        <label><input type="checkbox" id="chk-labels" checked> Nombres</label>
+        <button class="btn primary" id="btn-play" type="button">Pausar</button>
+        <label for="in-speed">Velocidad <select id="in-speed"><option value="0.4">lenta</option><option value="1" selected>normal</option><option value="2">rápida</option></select></label>
+        <button class="btn" id="btn-view" type="button">Encuadrar</button>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="card" id="step-card"></div>
+      <div class="card part-info" id="part-card"></div>
+    </aside>
+  </div>
+
+  <section style="display:grid;gap:10px">
+    <h2>Recorrido de cada magnitud</h2>
+    <div class="route"><table>
+      <thead><tr><th>Magnitud</th><th>Ley</th><th>Dónde nace</th><th>Por dónde circula</th><th>Dirección del vector</th></tr></thead>
+      <tbody>
+        <tr><td class="sym"><span class="sw" style="--c:var(--phase-a)"></span><i>i</i>₁</td><td>Red, Kirchhoff</td><td>La red trifásica, a través de la caja de bornes (U1, V1, W1)</td><td>Cables → bornes → bobinas del estator: a lo largo de una ranura, cabeza de bobina, de regreso por la ranura que está un paso polar más allá</td><td>Axial en las ranuras: hacia un lado en un lado de la bobina y hacia el otro en el lado de regreso</td></tr>
+        <tr><td class="sym"><span class="sw" style="--c:var(--v-n)"></span><i>H</i>, <i>B</i>, Φ</td><td>Ampère</td><td>Los amperios-vuelta <i>N</i>·<i>i</i>₁ del devanado del estator</td><td>Yugo del estator → diente → entrehierro → núcleo del rotor → entrehierro → diente → yugo. Es un lazo cerrado que gira a <i>n</i><sub>s</sub></td><td>Radial en el entrehierro (sale en N, entra en S); casi tangencial en los yugos</td></tr>
+        <tr><td class="sym"><span class="sw" style="--c:var(--v-emf)"></span><i>E</i>, <i>e</i></td><td>Faraday</td><td>Cada barra de la jaula, cuando el campo la barre con velocidad relativa <i>v</i><sub>rel</sub></td><td>Campo eléctrico inducido a lo largo de la barra; su integral es la tensión <i>e</i> ≈ 60 mV</td><td>Axial: <i>v</i><sub>rel</sub> × <i>B</i>. Cambia de sentido entre un polo N y uno S</td></tr>
+        <tr><td class="sym"><span class="sw" style="--c:var(--v-cur)"></span><i>i</i>₂</td><td>Ohm, Kirchhoff</td><td>Las barras, empujada por <i>e</i> sobre la resistencia muy baja de la jaula</td><td>Barras bajo un polo → anillo de cortocircuito → barras bajo el polo opuesto → otro anillo. Los anillos llevan unas 2,2 veces la corriente de una barra</td><td>Axial en las barras; tangencial en los anillos</td></tr>
+        <tr><td class="sym"><span class="sw" style="--c:var(--v-force)"></span><i>F</i></td><td>Lorentz</td><td>Cada barra con corriente <i>i</i>₂ dentro del campo <i>B</i></td><td>De la barra a las láminas del rotor y de ahí al eje</td><td>Tangencial, en el sentido en que gira el campo, bajo N y bajo S</td></tr>
+        <tr><td class="sym"><span class="sw" style="--c:var(--v-tau)"></span>τ</td><td>τ = Σ <i>r</i> × <i>F</i></td><td>La suma de las fuerzas de todas las barras por su radio</td><td>Núcleo del rotor → eje → chaveta → acople → carga</td><td>Axial por la regla de la mano derecha; el eje gira en ese sentido</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note">Escalas exageradas para que se vean: el entrehierro real mide 0,4 mm, la animación va en cámara lenta y el deslizamiento se muestra del 12 % en lugar del 3 % real.</p>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const viewer = $("viewer");
+  if (!window.THREE || !THREE.OrbitControls) { viewer.insertAdjacentHTML("beforeend", `<div class="nogl">No se pudo cargar el motor 3D. Revise la conexión a internet y recargue la página.</div>`); return; }
+  const T = THREE;
+
+  // ---------------------------------------------------------------- textos de cada paso y de cada pieza
+  const STEPS = {
+    despiece: {
+      tag: "Paso 0 · Despiece", title: "El motor real, pieza por pieza",
+      where: "La energía entra eléctrica por la caja de bornes, se vuelve campo magnético en el estator, cruza el entrehierro hacia el rotor y sale como par mecánico por el eje.",
+      eq: null,
+      legend: [],
+      nums: [["Potencia típica", "≈ 7,5 kW"], ["Ranuras del estator", "24"], ["Barras del rotor", "28"], ["Entrehierro", "0,4 mm"]],
+      note: "Toque una pieza o su nombre para ver de qué está hecha y qué papel cumple. Mueva «Separar» para armar y desarmar el motor.",
+      cam: [3.6, 6.4, 13.2], target: [-0.4, 0.7, 0], explode: 1, cut: false, cage: false,
+    },
+    ampere: {
+      tag: "Paso 1 · Ley de Ampère", title: "La corriente del estator crea el campo magnético",
+      where: "<b>Dónde:</b> en las bobinas de cobre metidas en las ranuras del estator. El campo que producen recorre el yugo y los dientes del estator, cruza el entrehierro y se cierra por el núcleo del rotor.",
+      eq: `∮ <i>H</i>·d<i>l</i> = <i>N</i>·<i>i</i>₁ &nbsp;⇒&nbsp; <i>B</i> ≈ μ₀<i>N i</i>₁ / <i>g</i><small>La circulación de H alrededor de un lazo de flujo es igual a la corriente que encierra (los amperios-vuelta de las ranuras).</small>`,
+      legend: [["var(--phase-a)", "arrow", "<b>i₁</b> en las ranuras, color de su fase (A amarillo, B azul, C rojo). La flecha cambia de tamaño y sentido con la corriente alterna."],
+               ["var(--phase-b)", "dot", "Puntos que avanzan por las bobinas: el recorrido de la corriente, incluidas las cabezas de bobina."],
+               ["var(--v-n)", "arrow", "<b>B</b> saliendo del rotor (polo N) en el entrehierro."],
+               ["var(--v-s)", "arrow", "<b>B</b> entrando al rotor (polo S)."],
+               ["var(--v-flux)", "", "Líneas de flujo <b>Φ</b>: salen por N, cruzan el entrehierro, recorren el yugo y regresan por S. Giran con el campo."]],
+      nums: [["Vueltas por fase N", "44"], ["Corriente de magnetización", "8,1 A"], ["FMM por polo ℱ", "≈ 233 A·v"], ["B pico en el entrehierro", "≈ 0,67 T"]],
+      note: "Ampère produce un campo <b>magnético</b> (H y B). El campo <b>eléctrico</b> aparece en el paso 2, cuando ese campo magnético cambia sobre las barras del rotor. Con el corte activado se ve el interior: las tres fases suman un campo que gira.",
+      cam: [4.0, 3.5, 5.4], target: [0, 0.3, 0.3], explode: 0, cut: true, cage: false,
+    },
+    faraday: {
+      tag: "Paso 2 · Ley de Faraday", title: "El campo giratorio induce tensión y corriente en la jaula",
+      where: "<b>Dónde:</b> en las barras de aluminio de la jaula de ardilla, que están dentro del campo, en el entrehierro. Aquí se sacó el rotor del estator para ver la jaula; las flechas de B representan el campo que le llega desde el estator.",
+      eq: `<i>e</i> = (<b><i>v</i></b><sub>rel</sub> × <b><i>B</i></b>)·<i>l</i> &nbsp;·&nbsp; ∮ <b><i>E</i></b>·d<i>l</i> = −dΦ/d<i>t</i><small>El rotor gira más despacio que el campo; la barra "ve" pasar B a la velocidad relativa v<sub>rel</sub> = s·ω<sub>s</sub>·r y aparece un campo eléctrico a lo largo de ella.</small>`,
+      legend: [["var(--v-n)", "arrow", "<b>B</b> del campo giratorio (naranja sale, verde azulado entra)."],
+               ["var(--v-rel)", "arrow", "<b>v<sub>rel</sub></b>: cómo se mueve la barra respecto al campo."],
+               ["var(--v-emf)", "arrow", "<b>e</b> e <b>i₂</b> a lo largo de cada barra: hacia un lado bajo N y hacia el otro bajo S."],
+               ["var(--v-cur)", "dot", "Puntos móviles: la corriente inducida recorre las barras y se cierra por los <b>anillos de cortocircuito</b> de los extremos."]],
+      nums: [["Deslizamiento real", "3 %"], ["v_rel en la barra", "0,45 m/s"], ["Tensión por barra", "≈ 60 mV"], ["Corriente por barra", "≈ 300 A"]],
+      note: "Una tensión de milivoltios mueve cientos de amperios porque la jaula tiene resistencia de décimas de miliohmio. Las corrientes del rotor tienen frecuencia s·f ≈ 1,8 Hz.",
+      cam: [-1.3, 2.5, 5.0], target: [-3.2, 0.1, 0], explode: 0.8, cut: false, cage: true,
+    },
+    lorentz: {
+      tag: "Paso 3 · Fuerza de Lorentz", title: "La corriente inducida dentro del campo produce el par",
+      where: "<b>Dónde:</b> en las mismas barras, que llevan corriente i₂ dentro del campo B. La fuerza pasa a las láminas del rotor y al eje, y el eje entrega el par a la carga por la chaveta.",
+      eq: `<b><i>F</i></b> = <i>i</i>₂ <b><i>l</i></b> × <b><i>B</i></b> &nbsp;·&nbsp; <b>τ</b> = Σ <b><i>r</i></b> × <b><i>F</i></b><small>Bajo N la corriente va en un sentido y bajo S en el otro; como B también se invierte, todas las fuerzas empujan en el sentido de giro del campo.</small>`,
+      legend: [["var(--v-emf)", "arrow", "<b>i₂</b> en cada barra."],
+               ["var(--v-force)", "arrow", "<b>F</b> sobre cada barra: tangencial, siempre en el sentido del campo. Es mayor donde B es mayor (∝ B²)."],
+               ["var(--v-rel)", "arrow", "<b>r</b>: brazo desde el eje hasta la barra."],
+               ["var(--v-tau)", "arrow", "<b>τ</b> en el eje: la flecha curva muestra el sentido de giro y la recta, el vector par (regla de la mano derecha)."]],
+      nums: [["Fuerza en una barra", "≈ 40 N"], ["Radio del rotor", "8 cm"], ["Par total", "≈ 45 N·m"], ["Velocidad del eje", "≈ 1746 rpm"]],
+      note: "Si el rotor alcanzara al campo, v<sub>rel</sub> sería cero, no habría tensión inducida, ni corriente, ni fuerza. Por eso el motor de inducción siempre se desliza un poco.",
+      cam: [-1.0, 2.7, 5.4], target: [-3.5, 0.15, 0], explode: 0.8, cut: false, cage: true,
+    },
+    todo: {
+      tag: "Las tres leyes juntas", title: "Todo ocurre al mismo tiempo dentro del motor armado",
+      where: "<b>Estator:</b> Ampère (corriente → campo). <b>Entrehierro y barras:</b> Faraday (campo que pasa → tensión y corriente). <b>Barras y eje:</b> Lorentz (corriente en el campo → fuerza → par).",
+      eq: `<i>V</i> → <i>i</i>₁ → <i>B</i> → <i>e</i> → <i>i</i>₂ → <i>F</i> → τ<small>Y el mismo campo induce en el estator la tensión E ≈ V, que limita la corriente que toma de la red.</small>`,
+      legend: [["var(--phase-a)", "arrow", "Corriente del estator i₁ (Ampère)."],
+               ["var(--v-n)", "arrow", "Campo B en el entrehierro y líneas de flujo."],
+               ["var(--v-emf)", "arrow", "Corriente inducida i₂ en las barras (Faraday)."],
+               ["var(--v-force)", "arrow", "Fuerza F en las barras y par τ en el eje (Lorentz)."]],
+      nums: [["Velocidad del campo", "1800 rpm"], ["Velocidad del rotor", "≈ 1746 rpm"], ["Flujo por polo", "10,7 mWb"], ["Par", "≈ 45 N·m"]],
+      note: "Active «Solo la jaula» para ocultar las láminas del rotor y ver sus barras dentro del estator.",
+      cam: [4.5, 3.8, 5.9], target: [-0.3, 0.3, 0.2], explode: 0, cut: true, cage: false,
+    },
+  };
+  const PARTS = {
+    carcasa: { name: "Carcasa", made: "Hierro fundido o aluminio, pintada.", role: "Sostiene y protege el núcleo del estator. Sus aletas disipan el calor de las pérdidas en el cobre y en el hierro; las patas fijan el motor a la base.", law: "No participa en la conversión; la temperatura que disipa limita la potencia del motor." },
+    bornera: { name: "Caja de bornes", made: "Bornes de latón U1, V1, W1 / W2, U2, V2 sobre una placa aislante.", role: "Por aquí entra la corriente de la red. Con puentes entre bornes se conecta el devanado en estrella o en triángulo.", law: "Inicio del camino de i₁, que alimentará la ley de Ampère." },
+    estator: { name: "Núcleo del estator", made: "Láminas de acero al silicio de 0,5 mm, aisladas entre sí, con 24 ranuras.", role: "Conduce el flujo magnético por el yugo y los dientes con muy poca FMM. Las láminas impiden que circulen corrientes parásitas grandes.", law: "Ampère: es el camino de baja reluctancia del flujo Φ." },
+    devanado: { name: "Devanado del estator", made: "Alambre de cobre esmaltado: 12 bobinas de 11 vueltas, 3 fases de 44 vueltas.", role: "Las corrientes trifásicas de sus bobinas crean el campo giratorio. Las partes curvas que asoman a cada lado son las cabezas de bobina.", law: "Ampère: N·i₁ es la fuerza magnetomotriz. Faraday: el campo induce en él la tensión E ≈ V." },
+    rotor: { name: "Núcleo del rotor", made: "Láminas de acero al silicio con 28 ranuras cerradas cerca de la superficie.", role: "Cierra el camino del flujo por dentro y sostiene las barras de la jaula.", law: "Ampère: parte del lazo de Φ. Lorentz: recibe la fuerza de las barras y la pasa al eje." },
+    jaula: { name: "Jaula de ardilla", made: "Aluminio inyectado: 28 barras unidas por dos anillos de cortocircuito con aletas de ventilación.", role: "Es el devanado del rotor, sin conexión con la red: toda su corriente es inducida.", law: "Faraday: aquí se induce la tensión e. Lorentz: aquí aparece la fuerza F." },
+    eje: { name: "Eje", made: "Acero al carbono con chavetero en el lado de acople.", role: "Transmite el par del rotor a la carga. En el lado opuesto lleva el ventilador.", law: "Lorentz: τ = Σ r × F llega aquí y sale por la chaveta." },
+    rodamientos: { name: "Rodamientos", made: "Rodamientos de bolas de acero.", role: "Mantienen el rotor centrado con el entrehierro de 0,4 mm igual en toda la vuelta, y dejan girar el eje con poca fricción.", law: "Si se desgastan, el rotor roza el estator y el campo queda desbalanceado." },
+    tapaDE: { name: "Tapa lado acople", made: "Hierro fundido.", role: "Cierra la carcasa en el lado de la carga y aloja el rodamiento delantero.", law: "Mecánica: fija la posición del rotor." },
+    tapaNDE: { name: "Tapa lado ventilador", made: "Hierro fundido con ventanas de ventilación.", role: "Aloja el rodamiento trasero y deja pasar el aire.", law: "Mecánica y refrigeración." },
+    ventilador: { name: "Ventilador", made: "Plástico o aluminio, fijado al eje.", role: "Gira con el eje y empuja aire sobre las aletas de la carcasa.", law: "Refrigeración: retira el calor de las pérdidas." },
+    cubierta: { name: "Cubierta del ventilador", made: "Lámina de acero con rejilla.", role: "Guía el aire hacia las aletas y protege las manos del ventilador.", law: "Refrigeración y seguridad." },
+  };
+
+  // ---------------------------------------------------------------- tokens de color
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || "#888";
+  const tokenMats = [];   // [material, token]
+  const tcol = n => new T.Color(css(n));
+
+  // ---------------------------------------------------------------- escena
+  let renderer;
+  try { renderer = new T.WebGLRenderer({ antialias: true, alpha: false }); } catch (err) { viewer.insertAdjacentHTML("beforeend", `<div class="nogl">Este navegador no tiene WebGL activo, que se necesita para el motor 3D. Pruebe con Chrome, Edge o Firefox actualizados.</div>`); return; }
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  renderer.localClippingEnabled = true;
+  viewer.insertBefore(renderer.domElement, viewer.firstChild);
+  const scene = new T.Scene();
+  const camera = new T.PerspectiveCamera(38, 1, 0.05, 200);
+  const controls = new T.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.dampingFactor = 0.08; controls.minDistance = 2; controls.maxDistance = 30;
+  scene.add(new T.HemisphereLight(0xffffff, 0x5a6470, 0.75));
+  const sun = new T.DirectionalLight(0xffffff, 0.75); sun.position.set(5, 9, 7); scene.add(sun);
+  const fill = new T.DirectionalLight(0xffffff, 0.35); fill.position.set(-7, 2, -4); scene.add(fill);
+
+  const CLIP = [new T.Plane(new T.Vector3(0, -1, 0), 0), new T.Plane(new T.Vector3(0, 0, -1), 0)];
+  const clipMats = [];
+  function mkMat(token, o = {}) {
+    const m = new T.MeshStandardMaterial({ color: tcol(token), metalness: o.metal ?? 0.25, roughness: o.rough ?? 0.55, side: o.side ?? T.FrontSide, transparent: !!o.transparent, opacity: o.opacity ?? 1 });
+    tokenMats.push([m, token]); if (o.clip) { m.clipIntersection = true; clipMats.push(m); } return m;
+  }
+  function mkCap(tok = "--m-cut") { const m = new T.MeshBasicMaterial({ color: tcol(tok), side: T.BackSide }); m.clipIntersection = true; tokenMats.push([m, tok]); clipMats.push(m); return m; }
+
+  // geometría: el eje del motor es x; un ángulo φ va de +y hacia +z
+  const W = (r, phi, x = 0) => new T.Vector3(x, r * Math.cos(phi), r * Math.sin(phi));
+  const P2 = (r, phi) => new T.Vector2(-r * Math.sin(phi), r * Math.cos(phi));
+  function extrudeX(shape, L, seg = 64) {
+    const g = new T.ExtrudeGeometry(shape, { depth: L, bevelEnabled: false, curveSegments: seg });
+    g.translate(0, 0, -L / 2); g.rotateY(Math.PI / 2); return g;
+  }
+  function ring(r1, r2) { const s = new T.Shape(); s.absarc(0, 0, r2, 0, Math.PI * 2, false); const h = new T.Path(); h.absarc(0, 0, r1, 0, Math.PI * 2, true); s.holes.push(h); return s; }
+  const partMats = {};   // id -> [materiales] para resaltar
+  function tagPart(obj, id, mats) { obj.traverse(o => { if (o.isMesh) o.userData.part = id; }); (partMats[id] ||= []).push(...mats); }
+  function addSolid(group, geo, mat, cap, pos, rotX) { const a = new T.Mesh(geo, mat); const b = new T.Mesh(geo, cap); for (const o of [a, b]) { if (pos) o.position.copy(pos); if (rotX) o.rotation.x = rotX; } group.add(a, b); return a; }
+
+  const pp = 2, Q = 24, NB = 28, RSI = 0.82, RSO = 1.36, LST = 2.0, RR = 0.78, RBAR = 0.705;
+  const slotPhi = k => (k + 0.5) * 2 * Math.PI / Q;
+  const barPhi = k => k * 2 * Math.PI / NB;
+
+  // ---------------------------------------------------------------- carcasa (con patas, aletas y caja de bornes)
+  const frame = new T.Group(); scene.add(frame);
+  { const mP = mkMat("--m-paint", { clip: true, rough: 0.7, metal: 0.15 }), cap = mkCap();
+    addSolid(frame, extrudeX(ring(RSO, 1.5), 2.8), mP, cap);
+    const finG = new T.BoxGeometry(2.72, 0.2, 0.045);
+    for (let k = 0; k < 36; k++) { const ph = k * 2 * Math.PI / 36; if (Math.abs(Math.sin(ph / 2)) < 0.2 || Math.abs(Math.cos(ph / 2)) < 0.3) continue;
+      addSolid(frame, finG, mP, cap, W(1.6, ph), ph); }
+    const mD = mkMat("--m-paint", { rough: 0.7, metal: 0.15 });
+    for (const z of [-1.05, 1.05]) {
+      const foot = new T.Mesh(new T.BoxGeometry(2.5, 0.12, 0.5), mD); foot.position.set(0, -1.86, z); frame.add(foot);
+      const leg = new T.Mesh(new T.BoxGeometry(2.3, 0.42, 0.2), mD); leg.position.set(0, -1.62, z * 0.86); frame.add(leg);
+    }
+    tagPart(frame, "carcasa", [mP, mD]);
+    // caja de bornes
+    const tb = new T.Group(); frame.add(tb);
+    const mB = mkMat("--m-paint", { rough: 0.65 });
+    const box = new T.Mesh(new T.BoxGeometry(0.9, 0.42, 0.9), mB); box.position.set(0, 1.71, 0); tb.add(box);
+    const lid = new T.Mesh(new T.BoxGeometry(0.98, 0.07, 0.98), mB); lid.position.set(0, 1.95, 0); tb.add(lid);
+    const gland = new T.Mesh(new T.CylinderGeometry(0.11, 0.11, 0.14, 20), mkMat("--m-dark")); gland.rotation.x = Math.PI / 2; gland.position.set(0, 1.68, 0.52); tb.add(gland);
+    ["--phase-a", "--phase-b", "--phase-c"].forEach((tk, i) => {
+      const c = new T.CatmullRomCurve3([new T.Vector3(-0.05 + i * 0.05, 1.68, 0.55), new T.Vector3(-0.1 + i * 0.1, 1.66, 1.0), new T.Vector3(-0.2 + i * 0.2, 1.3, 1.5), new T.Vector3(-0.3 + i * 0.3, 0.6, 1.75)]);
+      const cab = new T.Mesh(new T.TubeGeometry(c, 30, 0.035, 8), mkMat(tk, { rough: 0.6 })); tb.add(cab);
+    });
+    tagPart(tb, "bornera", [mB]);
+  }
+
+  // ---------------------------------------------------------------- estator: láminas con 24 ranuras
+  const stator = new T.Group(); scene.add(stator);
+  { const pts = [];
+    const ow = 0.032, bw = 0.075, rOpen = 0.865, rBot = 1.1, pitch = 2 * Math.PI / Q;
+    for (let k = 0; k < Q; k++) {
+      const c = slotPhi(k);
+      for (const a of [c - pitch / 2, c - pitch / 4]) pts.push(P2(RSI, a));
+      pts.push(P2(RSI, c - ow), P2(rOpen, c - ow), P2(rOpen, c - bw), P2(rBot - 0.02, c - bw), P2(rBot, c - bw * 0.6), P2(rBot, c + bw * 0.6), P2(rBot - 0.02, c + bw), P2(rOpen, c + bw), P2(rOpen, c + ow), P2(RSI, c + ow), P2(RSI, c + pitch / 4));
+    }
+    const s = new T.Shape(); s.absarc(0, 0, RSO, 0, Math.PI * 2, false); s.holes.push(new T.Path(pts));
+    const n = 20, step = LST / n, geo = extrudeX(s, step * 0.94, 64);
+    const mL = mkMat("--m-lam", { clip: true, metal: 0.55, rough: 0.42 }), cap = mkCap();
+    for (let i = 0; i < n; i++) addSolid(stator, geo, mL, cap, new T.Vector3(-LST / 2 + step * (i + 0.5), 0, 0));
+    tagPart(stator, "estator", [mL]);
+  }
+
+  // ---------------------------------------------------------------- devanado: asignación de fase por ranura
+  // la corriente axial de la ranura k debe valer sen(p/2·φk + θe): se elige la fase y el signo que la producen
+  const slotPhase = [];
+  for (let k = 0; k < Q; k++) {
+    const target = ((Math.PI / 2 - pp * slotPhi(k)) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    let best = null;
+    for (let m = 0; m < 3; m++) for (const sg of [1, -1]) {
+      const psi = (2 * Math.PI * m / 3 + (sg < 0 ? Math.PI : 0)) % (2 * Math.PI);
+      const d = Math.abs(Math.atan2(Math.sin(psi - target), Math.cos(psi - target)));
+      if (!best || d < best.d) best = { m, sg, d };
+    }
+    slotPhase.push(best);
+  }
+  const winding = new T.Group(); stator.add(winding);
+  const coils = [];   // {m, samples:[Vector3]}
+  const phaseTok = ["--phase-a", "--phase-b", "--phase-c"];
+  { const wMats = phaseTok.map(t => mkMat(t, { metal: 0.35, rough: 0.45, clip: true })), wCap = mkCap("--m-copper");
+    let gi = 0;
+    for (let k = 0; k < Q; k++) {
+      const sp = slotPhase[k]; if (sp.sg < 0) continue;
+      const a = slotPhi(k), b = a + 6 * 2 * Math.PI / Q, bulge = 0.12 + 0.07 * sp.m + 0.035 * (gi++ % 2), rc = 0.98, half = 1.04;
+      const p = [];
+      for (let j = 0; j <= 6; j++) p.push(W(rc, a, -half + 2 * half * j / 6));
+      for (let j = 1; j < 12; j++) { const u = j / 12; p.push(W(rc + 0.07 * Math.sin(Math.PI * u), a + (b - a) * u, half + bulge * Math.sin(Math.PI * u))); }
+      for (let j = 0; j <= 6; j++) p.push(W(rc, b, half - 2 * half * j / 6));
+      for (let j = 1; j < 12; j++) { const u = j / 12; p.push(W(rc + 0.07 * Math.sin(Math.PI * u), b + (a - b) * u, -half - bulge * Math.sin(Math.PI * u))); }
+      const curve = new T.CatmullRomCurve3(p, true, "centripetal");
+      const tg = new T.TubeGeometry(curve, 220, 0.062, 8, true); winding.add(new T.Mesh(tg, wMats[sp.m]), new T.Mesh(tg, wCap));
+      coils.push({ m: sp.m, samples: curve.getSpacedPoints(400) });
+    }
+    tagPart(winding, "devanado", wMats);
+  }
+
+  // ---------------------------------------------------------------- rotor: núcleo, jaula, eje
+  const rotorG = new T.Group(); scene.add(rotorG);       // se desplaza al separar
+  const spin = new T.Group(); rotorG.add(spin);           // gira con el rotor
+  const rotorCore = new T.Group(); spin.add(rotorCore);
+  { const s = new T.Shape(); s.absarc(0, 0, RR, 0, Math.PI * 2, false);
+    const sh = new T.Path(); sh.absarc(0, 0, 0.125, 0, Math.PI * 2, true); s.holes.push(sh);
+    for (let k = 0; k < NB; k++) { const c = barPhi(k); s.holes.push(new T.Path([P2(0.655, c - 0.045), P2(0.655, c + 0.045), P2(0.755, c + 0.05), P2(0.755, c - 0.05)])); }
+    const n = 18, step = LST / n, geo = extrudeX(s, step * 0.94, 48);
+    const mR = mkMat("--m-lam", { clip: true, metal: 0.55, rough: 0.42 }), cap = mkCap();
+    for (let i = 0; i < n; i++) addSolid(rotorCore, geo, mR, cap, new T.Vector3(-LST / 2 + step * (i + 0.5), 0, 0));
+    tagPart(rotorCore, "rotor", [mR]);
+  }
+  const cage = new T.Group(); spin.add(cage);
+  { const mA = mkMat("--m-alu", { metal: 0.6, rough: 0.35 });
+    const barG = new T.BoxGeometry(2.3, 0.09, 0.062);
+    for (let k = 0; k < NB; k++) { const b = new T.Mesh(barG, mA); b.position.copy(W(RBAR, barPhi(k))); b.rotation.x = barPhi(k); cage.add(b); }
+    const rg = extrudeX(ring(0.6, 0.79), 0.16);
+    for (const x of [-1.14, 1.14]) {
+      const r = new T.Mesh(rg, mA); r.position.x = x; cage.add(r);
+      for (let k = 0; k < 8; k++) { const f = new T.Mesh(new T.BoxGeometry(0.16, 0.16, 0.035), mA); const ph = k * Math.PI / 4; f.position.copy(W(0.5, ph, x + Math.sign(x) * 0.15)); f.rotation.x = ph; cage.add(f); }
+    }
+    tagPart(cage, "jaula", [mA]);
+  }
+  { const shaft = new T.Group(); spin.add(shaft);
+    const mS = mkMat("--m-shaft", { metal: 0.75, rough: 0.3 });
+    const seg = (r, x0, x1) => { const c = new T.Mesh(new T.CylinderGeometry(r, r, x1 - x0, 32), mS); c.rotation.z = Math.PI / 2; c.position.x = (x0 + x1) / 2; shaft.add(c); };
+    seg(0.12, -3.3, 2.6); seg(0.16, -1.42, -1.25); seg(0.16, 1.25, 1.42);
+    const key = new T.Mesh(new T.BoxGeometry(0.7, 0.06, 0.07), mkMat("--m-dark")); key.position.set(-2.85, 0.13, 0); shaft.add(key);
+    tagPart(shaft, "eje", [mS]);
+  }
+
+  // ---------------------------------------------------------------- rodamientos, tapas, ventilador, cubierta
+  function bearing() {
+    const g = new T.Group(), m = mkMat("--m-shaft", { metal: 0.85, rough: 0.25 });
+    g.add(new T.Mesh(extrudeX(ring(0.27, 0.33), 0.14), m), new T.Mesh(extrudeX(ring(0.125, 0.19), 0.14), m));
+    const ball = new T.SphereGeometry(0.045, 14, 10);
+    for (let k = 0; k < 9; k++) { const b = new T.Mesh(ball, m); b.position.copy(W(0.23, k * 2 * Math.PI / 9)); g.add(b); }
+    tagPart(g, "rodamientos", [m]); return g;
+  }
+  const bearDE = bearing(), bearNDE = bearing(); scene.add(bearDE, bearNDE);
+  function shield(id, vents) {
+    const g = new T.Group(), m = mkMat("--m-paint", { clip: true, rough: 0.7, metal: 0.15 }), cap = mkCap();
+    const s = new T.Shape(); s.absarc(0, 0, 1.6, 0, Math.PI * 2, false);
+    const h = new T.Path(); h.absarc(0, 0, 0.34, 0, Math.PI * 2, true); s.holes.push(h);
+    if (vents) for (let k = 0; k < 8; k++) { const a0 = k * Math.PI / 4 + 0.1, a1 = a0 + Math.PI / 4 - 0.2, pts = [];
+      for (let j = 0; j <= 6; j++) pts.push(P2(1.25, a0 + (a1 - a0) * j / 6)); for (let j = 6; j >= 0; j--) pts.push(P2(0.85, a0 + (a1 - a0) * j / 6)); s.holes.push(new T.Path(pts)); }
+    addSolid(g, extrudeX(s, 0.12), m, cap);
+    addSolid(g, extrudeX(ring(0.33, 0.46), 0.3), m, cap);
+    for (let k = 0; k < 4; k++) { const ph = Math.PI / 4 + k * Math.PI / 2; const bolt = new T.Mesh(new T.CylinderGeometry(0.06, 0.06, 0.2, 12), mkMat("--m-dark")); bolt.rotation.z = Math.PI / 2; bolt.position.copy(W(1.5, ph)); g.add(bolt); }
+    tagPart(g, id, [m]); return g;
+  }
+  const shDE = shield("tapaDE", false), shNDE = shield("tapaNDE", true); scene.add(shDE, shNDE);
+  const fan = new T.Group(); scene.add(fan);
+  { const m = mkMat("--m-dark", { rough: 0.6 });
+    const hub = new T.Mesh(new T.CylinderGeometry(0.2, 0.2, 0.3, 24), m); hub.rotation.z = Math.PI / 2; fan.add(hub);
+    for (let k = 0; k < 10; k++) { const ph = k * 2 * Math.PI / 10; const b = new T.Mesh(new T.BoxGeometry(0.28, 1.05, 0.035), m); b.position.copy(W(0.72, ph)); b.rotation.x = ph; fan.add(b); }
+    tagPart(fan, "ventilador", [m]); }
+  const cover = new T.Group(); scene.add(cover);
+  { const m = mkMat("--m-paint", { clip: true, rough: 0.7, metal: 0.15, side: T.DoubleSide }), cap = mkCap();
+    addSolid(cover, extrudeX(ring(1.6, 1.65), 0.75), m, cap);
+    const s = new T.Shape(); s.absarc(0, 0, 1.65, 0, Math.PI * 2, false);
+    for (const [r1, r2] of [[0.35, 0.6], [0.72, 0.98], [1.1, 1.38]]) for (let k = 0; k < 8; k++) { const a0 = k * Math.PI / 4 + 0.08, a1 = a0 + Math.PI / 4 - 0.16, pts = [];
+      for (let j = 0; j <= 5; j++) pts.push(P2(r2, a0 + (a1 - a0) * j / 5)); for (let j = 5; j >= 0; j--) pts.push(P2(r1, a0 + (a1 - a0) * j / 5)); s.holes.push(new T.Path(pts)); }
+    addSolid(cover, extrudeX(s, 0.05), m, cap, new T.Vector3(0.36, 0, 0));
+    tagPart(cover, "cubierta", [m]); }
+
+  // ---------------------------------------------------------------- vectores
+  const arrowMats = [];
+  function arrow(token, shaftR = 0.018) {
+    const g = new T.Group(), m = new T.MeshBasicMaterial({ color: tcol(token), depthTest: true });
+    arrowMats.push([m, token]);
+    const sh = new T.Mesh(new T.CylinderGeometry(shaftR, shaftR, 1, 8), m), hd = new T.Mesh(new T.ConeGeometry(shaftR * 3.2, 1, 12), m);
+    g.add(sh, hd); g.userData = { sh, hd, m, token }; return g;
+  }
+  const UP = new T.Vector3(0, 1, 0), tmpQ = new T.Quaternion();
+  function setArrow(a, from, dir, len, token) {
+    if (len < 0.02) { a.visible = false; return; }
+    a.visible = true; const head = Math.min(0.14, len * 0.45), { sh, hd } = a.userData;
+    a.position.copy(from); tmpQ.setFromUnitVectors(UP, dir.clone().normalize()); a.quaternion.copy(tmpQ);
+    sh.scale.set(1, len - head, 1); sh.position.y = (len - head) / 2; hd.scale.set(1, head, 1); hd.position.y = len - head / 2;
+    if (token && a.userData.token !== token) { a.userData.token = token; a.userData.m.color.copy(tcol(token)); }
+  }
+  // corriente del estator en cada ranura
+  const statArrows = []; for (let k = 0; k < Q; k++) { const a = arrow(phaseTok[slotPhase[k].m], 0.022); stator.add(a); statArrows.push(a); }
+  // puntos de corriente en las bobinas
+  const dotGeo = new T.SphereGeometry(0.032, 10, 8);
+  const coilDotMat = new T.MeshBasicMaterial({ color: 0xffffff }); coilDotMat.clipIntersection = true; clipMats.push(coilDotMat);
+  const coilDots = new T.InstancedMesh(dotGeo, coilDotMat, coils.length * 14); stator.add(coilDots);
+  for (let n = 0; n < coils.length * 14; n++) coilDots.setColorAt(n, tcol(phaseTok[coils[Math.floor(n / 14)].m]));
+  const coilU = coils.map(() => Array.from({ length: 14 }, (_, j) => j / 14));
+  // campo en el entrehierro (no gira con el rotor; se mueve con él al separar)
+  const fieldG = new T.Group(); scene.add(fieldG);
+  const gapArrows = []; for (const x of [-0.6, 0, 0.6]) for (let k = 0; k < 24; k++) { const a = arrow("--v-n", 0.016); fieldG.add(a); gapArrows.push({ a, x, phi: (k + 0.25) * 2 * Math.PI / 24 }); }
+  // líneas de flujo (planos x = ±0,45), dibujadas con el polo N en φ = 0
+  const fluxG = new T.Group(); stator.add(fluxG);
+  const fluxMat = new T.MeshBasicMaterial({ color: tcol("--v-flux"), transparent: true }); arrowMats.push([fluxMat, "--v-flux"]);
+  for (const x of [-0.45, 0.45]) for (const mid of [Math.PI / 4, -Math.PI / 4, 3 * Math.PI / 4, -3 * Math.PI / 4]) {
+    const phiN = Math.abs(mid) < Math.PI / 2 ? 0 : (mid > 0 ? Math.PI : -Math.PI), sigma = phiN < mid ? -1 : 1;
+    [[0.3, 0.26], [0.6, 0.37], [0.92, 0.48]].forEach(([w, A]) => {
+      const pts = []; for (let j = 0; j < 72; j++) { const t = j / 72 * 2 * Math.PI; pts.push(W(0.8 + sigma * A * Math.sin(t), mid + w * Math.PI / 4 * Math.cos(t), x)); }
+      const c = new T.CatmullRomCurve3(pts, true); fluxG.add(new T.Mesh(new T.TubeGeometry(c, 120, 0.011, 6, true), fluxMat));
+      for (const u of [0.25, 0.75]) { const cone = new T.Mesh(new T.ConeGeometry(0.035, 0.09, 10), fluxMat); cone.position.copy(c.getPointAt(u)); cone.quaternion.setFromUnitVectors(UP, c.getTangentAt(u)); fluxG.add(cone); }
+    });
+  }
+  // barras: corriente inducida y fuerza (giran con el rotor)
+  const barArrows = [], forceArrows = [];
+  for (let k = 0; k < NB; k++) { const a = arrow("--v-emf", 0.02); spin.add(a); barArrows.push(a); const f = arrow("--v-force", 0.022); spin.add(f); forceArrows.push(f); }
+  const NBD = 7, NRD = 64;
+  const cageDots = new T.InstancedMesh(dotGeo, new T.MeshBasicMaterial({ color: tcol("--v-cur") }), NB * NBD + 2 * NRD); spin.add(cageDots);
+  arrowMats.push([cageDots.material, "--v-cur"]);
+  const barU = Array.from({ length: NB }, () => Array.from({ length: NBD }, (_, j) => j / NBD));
+  const ringU = [0, 1].map(() => Array.from({ length: NRD }, (_, j) => j / NRD * 2 * Math.PI));
+  // vectores de la barra de ejemplo (posición fija φ* frente a la cámara)
+  const PHI_STAR = 0.72;
+  const triad = { B: arrow("--v-n", 0.03), v: arrow("--v-rel", 0.026), e: arrow("--v-emf", 0.03), F: arrow("--v-force", 0.03), r: arrow("--v-rel", 0.018) };
+  Object.values(triad).forEach(a => fieldG.add(a));
+  const triadMark = new T.Mesh(new T.TorusGeometry(0.08, 0.012, 8, 24), new T.MeshBasicMaterial({ color: tcol("--ink") })); arrowMats.push([triadMark.material, "--ink"]);
+  triadMark.rotation.y = Math.PI / 2; fieldG.add(triadMark);
+  // par en el eje
+  const torqueG = new T.Group(); scene.add(torqueG);
+  { const m = new T.MeshBasicMaterial({ color: tcol("--v-tau") }); arrowMats.push([m, "--v-tau"]);
+    const tor = new T.Mesh(new T.TorusGeometry(0.36, 0.03, 8, 48, Math.PI * 1.5), m); tor.rotation.y = Math.PI / 2; tor.position.x = -1.78; torqueG.add(tor);
+    const cone = new T.Mesh(new T.ConeGeometry(0.08, 0.2, 14), m); cone.position.set(-1.78, 0, -0.36); cone.rotation.z = Math.PI; torqueG.add(cone);
+    const ax = arrow("--v-tau", 0.035); setArrow(ax, new T.Vector3(-1.78, 0.68, 0), new T.Vector3(-1, 0, 0), 1.0); torqueG.add(ax); }
+
+  // ---------------------------------------------------------------- etiquetas HTML
+  const labelsEl = $("labels"), labels = [];
+  function addLabel(text, cls, color, getPos, show, onClick) {
+    const el = document.createElement("div"); el.className = "lbl " + cls; el.innerHTML = text; if (color) el.style.setProperty("--c", color);
+    if (onClick) { el.addEventListener("click", onClick); el.setAttribute("role", "button"); el.tabIndex = 0; el.addEventListener("keydown", e => { if (e.key === "Enter") onClick(); }); }
+    labelsEl.appendChild(el); const L = { el, getPos, show }; labels.push(L); return L;
+  }
+  const v3 = (x, y, z) => new T.Vector3(x, y, z);
+  const partAnchors = {
+    carcasa: () => frame.position.clone().add(v3(0.9, 1.25, 1.2)), bornera: () => frame.position.clone().add(v3(-0.2, 2.1, 0.3)),
+    estator: () => v3(-0.5, -1.15, 0.9), devanado: () => v3(0.9, 0.6, 1.05), rotor: () => rotorG.position.clone().add(v3(0.3, -0.6, 0.6)),
+    jaula: () => rotorG.position.clone().add(v3(-1.15, 0.75, 0.25)), eje: () => rotorG.position.clone().add(v3(-3.0, 0.15, 0.1)),
+    rodamientos: () => bearDE.position.clone().add(v3(0, 0.35, 0.1)), tapaDE: () => shDE.position.clone().add(v3(0, 1.5, 0.5)),
+    tapaNDE: () => shNDE.position.clone().add(v3(0, 1.5, 0.5)), ventilador: () => fan.position.clone().add(v3(0, 1.0, 0.4)), cubierta: () => cover.position.clone().add(v3(0.3, 1.55, 0.5)),
+  };
+  const partLabels = {};
+  Object.keys(PARTS).forEach(id => { partLabels[id] = addLabel(PARTS[id].name, "part", null, partAnchors[id], () => S.labels && curExplode > 0.35 && !S.ov.triad, () => selectPart(id)); });
+  // etiquetas de vectores
+  const phiStarPos = (r, x = 0) => fieldG.position.clone().add(W(r, PHI_STAR, x));
+  const vecLbl = {
+    i1: addLabel("i₁", "vec", "var(--phase-a)", () => { const k = 2; return W(0.98, slotPhi(k), 0.7).add(stator.position); }, () => S.ov.stat),
+    gap: addLabel("entrehierro", "vec", "var(--muted)", () => W(0.82, 0.25, 1.0), () => S.ov.flux),
+    flux: addLabel("Φ por el yugo", "vec", "var(--v-flux)", () => W(1.24, 0.95, 0.45), () => S.ov.flux),
+    B: addLabel("B", "vec", "var(--v-n)", () => tipOf(triad.B), () => S.ov.triad && triad.B.visible),
+    v: addLabel("v<sub>rel</sub>", "vec", "var(--v-rel)", () => tipOf(triad.v), () => S.ov.triad && S.triadSet.includes("v")),
+    e: addLabel("e, i₂", "vec", "var(--v-emf)", () => tipOf(triad.e), () => S.ov.triad && S.triadSet.includes("e") && triad.e.visible),
+    F: addLabel("F", "vec", "var(--v-force)", () => tipOf(triad.F), () => S.ov.triad && S.triadSet.includes("F") && triad.F.visible),
+    r: addLabel("r", "vec", "var(--v-rel)", () => phiStarPos(0.42).add(v3(0, 0.05, 0)), () => S.ov.triad && S.triadSet.includes("r")),
+    ring: addLabel("anillo de cortocircuito", "vec", "var(--v-cur)", () => rotorG.position.clone().add(W(0.82, 0.3, -1.25)), () => S.ov.cage && S.cage),
+    tau: addLabel("τ (par)", "vec", "var(--v-tau)", () => torqueG.position.clone().add(v3(-2.95, 0.72, 0)), () => S.ov.torque),
+  };
+  function tipOf(a) { const { hd } = a.userData; return a.localToWorld(hd.position.clone().add(v3(0, 0.12, 0))); }
+
+  // ---------------------------------------------------------------- estado y pasos
+  const S = { step: "despiece", labels: true, cut: false, cage: false, playing: !matchMedia("(prefers-reduced-motion: reduce)").matches, speed: 1, ov: {}, triadSet: [], sel: null };
+  const OV = {
+    despiece: {},
+    ampere: { stat: 1, coil: 1, gap: 1, flux: 1 },
+    faraday: { gap: 2, bar: 1, cage: 1, triad: 1 },
+    lorentz: { gap: 2, bar: 1, cage: 1, force: 1, triad: 1, torque: 1 },
+    todo: { stat: 1, coil: 1, gap: 1, flux: 1, bar: 1, force: 1, torque: 1, cage: 1 },
+  };
+  const TRIAD = { faraday: ["B", "v", "e"], lorentz: ["B", "e", "F", "r"] };
+  let curExplode = 1, tween = null;
+
+  function renderStep() {
+    const s = STEPS[S.step];
+    $("step-card").innerHTML = `<div class="tag">${s.tag}</div><h2>${s.title}</h2><p class="where">${s.where}</p>${s.eq ? `<div class="eq">${s.eq}</div>` : ""}
+      ${s.legend.length ? `<ul class="legend">${s.legend.map(([c, k, t]) => `<li><span class="sw ${k}" style="--c:${c}"></span><span>${t}</span></li>`).join("")}</ul>` : ""}
+      <dl class="nums">${s.nums.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join("")}</dl><p class="note">${s.note}</p>`;
+  }
+  function renderPart() {
+    const id = S.sel, card = $("part-card");
+    const chips = `<div class="parts">${Object.keys(PARTS).map(k => `<button type="button" class="part-chip" id="chip-${k}" data-part="${k}" aria-pressed="${k === id}">${PARTS[k].name}</button>`).join("")}</div>`;
+    if (!id) card.innerHTML = `<div class="tag">Piezas</div>${chips}<p class="note">Elija una pieza para ver su material, su función y qué ley ocurre en ella.</p>`;
+    else { const p = PARTS[id]; card.innerHTML = `<div class="tag">Pieza seleccionada</div><h3>${p.name}</h3><dl><div><dt>Material</dt><dd>${p.made}</dd></div><div><dt>Función</dt><dd>${p.role}</dd></div><div><dt>Electromagnetismo</dt><dd>${p.law}</dd></div></dl>${chips}`; }
+    card.querySelectorAll(".part-chip").forEach(b => b.addEventListener("click", () => selectPart(b.dataset.part === S.sel ? null : b.dataset.part)));
+  }
+  function selectPart(id) {
+    S.sel = id;
+    Object.entries(partMats).forEach(([k, mats]) => mats.forEach(m => m.emissive && m.emissive.setHex(k === id ? 0x6a3a10 : 0x000000)));
+    Object.entries(partLabels).forEach(([k, L]) => L.el.classList.toggle("sel", k === id));
+    renderPart();
+  }
+  function applyClip() { clipMats.forEach(m => { m.clippingPlanes = S.cut ? CLIP : []; m.needsUpdate = true; }); $("chk-cut").checked = S.cut; }
+  function applyCage() { rotorCore.visible = !S.cage; $("chk-cage").checked = S.cage; }
+  function setStep(id, animate = true) {
+    S.step = id; S.ov = OV[id]; S.triadSet = TRIAD[id] || [];
+    document.querySelectorAll(".steps button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.step === id)));
+    const s = STEPS[id]; S.cut = s.cut; S.cage = s.cage; applyClip(); applyCage();
+    goTo(s.cam, s.target, s.explode, animate); renderStep();
+  }
+  function fitFactor() { const a = viewer.clientWidth / Math.max(1, viewer.clientHeight); return a < 0.8 ? 1.75 : a < 1.2 ? 1.3 : 1; }
+  function goTo(cam, target, explode, animate) {
+    const t1 = new T.Vector3(...target), c1 = new T.Vector3(...cam).sub(t1).multiplyScalar(fitFactor()).add(t1);
+    if (!animate) { camera.position.copy(c1); controls.target.copy(t1); curExplode = explode; $("in-explode").value = explode; controls.update(); return; }
+    tween = { t: 0, c0: camera.position.clone(), t0: controls.target.clone(), e0: curExplode, c1, t1, e1: explode };
+  }
+
+  // ---------------------------------------------------------------- separación de piezas
+  function applyExplode(e) {
+    frame.position.set(0, 2.6 * e, 0);
+    rotorG.position.x = -3.8 * e; fieldG.position.x = rotorG.position.x; torqueG.position.x = rotorG.position.x;
+    bearDE.position.x = -1.34 - 5.0 * e; shDE.position.x = -1.47 - 6.0 * e;
+    bearNDE.position.x = 1.34 + 1.6 * e; shNDE.position.x = 1.47 + 2.4 * e;
+    fan.position.x = 1.95 + 3.4 * e; cover.position.x = 1.92 + 4.6 * e;
+    fluxMat.opacity = Math.max(0, 1 - e / 0.25); fluxG.visible = fluxMat.opacity > 0.02;
+  }
+
+  // ---------------------------------------------------------------- física de la animación
+  const OMEGA = 2 * Math.PI * 0.25, SLIP = 0.12;
+  let thE = 0.6, thR = 0, last = null;
+  const Bf = phi => Math.cos(pp * phi + thE);                       // campo radial normalizado (gira en −φ)
+  const iPh = m => Math.cos(thE - 2 * Math.PI * m / 3);              // corrientes de fase
+  const tmpM = new T.Matrix4(), tmpV = new T.Vector3(), ringCur = [new Float32Array(NB), new Float32Array(NB)];
+  const XP = new T.Vector3(1, 0, 0), XN = new T.Vector3(-1, 0, 0);
+
+  function updatePhysics(dt) {
+    const ov = S.ov;
+    // 1. estator: corriente en ranuras y puntos en bobinas
+    for (let k = 0; k < Q; k++) {
+      const sp = slotPhase[k], i = sp.sg * iPh(sp.m);
+      statArrows[k].visible = !!ov.stat;
+      if (ov.stat) setArrow(statArrows[k], W(0.98, slotPhi(k), -0.42 * Math.sign(i) * (0.2 + 0.8 * Math.abs(i))), i >= 0 ? XP : XN, 0.15 + 0.85 * Math.abs(i) * 1.0);
+    }
+    coilDots.visible = !!ov.coil;
+    if (ov.coil) { let n = 0; coils.forEach((c, ci) => { const i = iPh(c.m); coilU[ci].forEach((u, j) => {
+      let nu = (u + i * 0.09 * dt) % 1; if (nu < 0) nu += 1; coilU[ci][j] = nu;
+      const p = c.samples[Math.floor(nu * 400) % 400], s = Math.abs(i) > 0.12 ? 1 : 0;
+      tmpM.makeScale(s, s, s).setPosition(p.x, p.y, p.z); coilDots.setMatrixAt(n, tmpM); coilDots.setColorAt(n, tcolCache[c.m]); n++; }); });
+      coilDots.instanceMatrix.needsUpdate = true; if (coilDots.instanceColor) coilDots.instanceColor.needsUpdate = true; }
+    // 2. campo en el entrehierro y líneas de flujo
+    gapArrows.forEach(({ a, x, phi }) => { a.visible = !!ov.gap && (ov.gap === 1 || x > 0.3); if (!a.visible) return;
+      const b = Bf(phi), len = 0.06 + 0.36 * Math.abs(b); if (Math.abs(b) < 0.15) { a.visible = false; return; }
+      const dir = W(1, phi).multiplyScalar(Math.sign(b)); setArrow(a, W(0.8, phi, x).addScaledVector(dir, -len / 2), dir, len, b > 0 ? "--v-n" : "--v-s"); });
+    fluxG.rotation.x = -thE / pp; if (!ov.flux) fluxG.visible = false;
+    // 3. jaula: corriente inducida (−x bajo N), corriente en anillos y fuerzas (−φ)
+    const iBar = new Float32Array(NB);
+    for (let k = 0; k < NB; k++) {
+      const phiW = barPhi(k) - thR, b = Bf(phiW); iBar[k] = -b;
+      barArrows[k].visible = !!ov.bar; forceArrows[k].visible = !!ov.force;
+      if (ov.bar) { const len = 0.12 + 1.15 * Math.abs(b); setArrow(barArrows[k], W(0.82, barPhi(k), -0.3 - (iBar[k] > 0 ? len / 2 : -len / 2)), iBar[k] > 0 ? XP : XN, len); }
+      if (ov.force) { const f = b * b, len = 0.05 + 0.5 * f, tang = new T.Vector3(0, Math.sin(barPhi(k)), -Math.cos(barPhi(k)));
+        if (f < 0.04) forceArrows[k].visible = false; else setArrow(forceArrows[k], W(0.82, barPhi(k), 0.98), tang, len); }
+    }
+    cageDots.visible = !!ov.cage;
+    if (ov.cage) {
+      let acc = 0; for (let k = 0; k < NB; k++) { acc += iBar[k]; ringCur[1][k] = acc; }
+      const mean = acc / NB; for (let k = 0; k < NB; k++) { ringCur[1][k] -= mean; ringCur[0][k] = -ringCur[1][k]; }
+      let n = 0;
+      for (let k = 0; k < NB; k++) for (let j = 0; j < NBD; j++) {
+        let u = barU[k][j] + iBar[k] * 0.32 * dt; u = ((u % 1) + 1) % 1; barU[k][j] = u;
+        const s = Math.abs(iBar[k]) > 0.12 ? 1 : 0, p = W(0.775, barPhi(k), -1.1 + 2.2 * u);
+        tmpM.makeScale(s, s, s).setPosition(p.x, p.y, p.z); cageDots.setMatrixAt(n++, tmpM);
+      }
+      for (let r = 0; r < 2; r++) { const x = r ? 1.235 : -1.235;
+        for (let j = 0; j < NRD; j++) {
+          let a = ringU[r][j]; const seg = Math.floor(((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI) / (2 * Math.PI / NB)) % NB, I = ringCur[r][seg];
+          a += I * 0.12 * dt; ringU[r][j] = a;
+          const s = Math.abs(I) > 0.3 ? 1 : 0, p = W(0.7, a, x); tmpM.makeScale(s, s, s).setPosition(p.x, p.y, p.z); cageDots.setMatrixAt(n++, tmpM);
+        } }
+      cageDots.instanceMatrix.needsUpdate = true;
+    }
+    // 4. vectores de la barra de ejemplo
+    const showT = !!ov.triad; Object.values(triad).forEach(a => a.visible = false); triadMark.visible = showT;
+    if (showT) {
+      const b = Bf(PHI_STAR), rhat = W(1, PHI_STAR), tang = new T.Vector3(0, -Math.sin(PHI_STAR), Math.cos(PHI_STAR)), P = W(0.8, PHI_STAR, 0.15);
+      triadMark.position.copy(P);
+      if (Math.abs(b) > 0.08) setArrow(triad.B, P, rhat.clone().multiplyScalar(Math.sign(b)), 0.25 + 0.5 * Math.abs(b), b > 0 ? "--v-n" : "--v-s");
+      if (S.triadSet.includes("v")) setArrow(triad.v, P, tang, 0.55);
+      if (S.triadSet.includes("e") && Math.abs(b) > 0.08) setArrow(triad.e, P, b > 0 ? XN : XP, 0.25 + 0.75 * Math.abs(b));
+      if (S.triadSet.includes("F") && b * b > 0.02) setArrow(triad.F, P, tang.clone().negate(), 0.2 + 0.75 * b * b);
+      if (S.triadSet.includes("r")) setArrow(triad.r, W(0, 0, 0.15), rhat, 0.78);
+    }
+    torqueG.visible = !!ov.torque;
+  }
+  const tcolCache = phaseTok.map(t => tcol(t));
+
+  // ---------------------------------------------------------------- tema
+  function refreshColors() {
+    tokenMats.forEach(([m, t]) => m.color.copy(tcol(t)));
+    arrowMats.forEach(([m, t]) => m.color.copy(tcol(t)));
+    [...statArrows, ...barArrows, ...forceArrows, ...gapArrows.map(g => g.a), ...Object.values(triad)].forEach(a => a.userData.m.color.copy(tcol(a.userData.token)));
+    phaseTok.forEach((t, i) => tcolCache[i].copy(tcol(t)));
+    scene.background = tcol("--stage");
+  }
+  refreshColors();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", refreshColors);
+  new MutationObserver(refreshColors).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  // ---------------------------------------------------------------- tamaño, selección y controles
+  function resize() { const w = viewer.clientWidth, h = viewer.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(viewer); resize();
+  const ray = new T.Raycaster(), ptr = new T.Vector2(); let downAt = null;
+  renderer.domElement.addEventListener("pointerdown", e => downAt = [e.clientX, e.clientY]);
+  renderer.domElement.addEventListener("pointerup", e => {
+    if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5) return;
+    const r = renderer.domElement.getBoundingClientRect(); ptr.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    const hit = ray.intersectObjects(scene.children, true).find(h => h.object.userData.part && h.object.visible && isShown(h.object) && !(S.cut && isClipped(h.point)));
+    selectPart(hit ? hit.object.userData.part : null);
+  });
+  const isShown = o => { while (o) { if (!o.visible) return false; o = o.parent; } return true; };
+  const isClipped = p => p.y > 0 && p.z > 0;
+  document.querySelectorAll(".steps button").forEach(b => b.addEventListener("click", () => setStep(b.dataset.step)));
+  $("in-explode").addEventListener("input", e => { tween = null; curExplode = +e.target.value; });
+  $("chk-cut").addEventListener("change", e => { S.cut = e.target.checked; applyClip(); });
+  $("chk-cage").addEventListener("change", e => { S.cage = e.target.checked; applyCage(); });
+  $("chk-labels").addEventListener("change", e => { S.labels = e.target.checked; });
+  $("btn-play").addEventListener("click", () => { S.playing = !S.playing; $("btn-play").textContent = S.playing ? "Pausar" : "Reanudar"; });
+  $("in-speed").addEventListener("change", e => S.speed = +e.target.value);
+  $("btn-view").addEventListener("click", () => { const s = STEPS[S.step]; goTo(s.cam, s.target, curExplode, true); });
+  if (!S.playing) $("btn-play").textContent = "Reanudar";
+
+  // ---------------------------------------------------------------- bucle
+  const proj = new T.Vector3();
+  function frameLoop(ts) {
+    const raw = last === null ? 0 : Math.min(0.3, (ts - last) / 1000), dt = Math.min(0.05, raw); last = ts;
+    if (tween) { tween.t = Math.min(1, tween.t + raw / 1.1); const k = tween.t < 0.5 ? 2 * tween.t * tween.t : 1 - Math.pow(-2 * tween.t + 2, 2) / 2;
+      camera.position.lerpVectors(tween.c0, tween.c1, k); controls.target.lerpVectors(tween.t0, tween.t1, k);
+      curExplode = tween.e0 + (tween.e1 - tween.e0) * k; $("in-explode").value = curExplode.toFixed(2); if (tween.t >= 1) tween = null; }
+    if (S.playing) { thE += OMEGA * dt * S.speed; thR += OMEGA / pp * (1 - SLIP) * dt * S.speed; }
+    spin.rotation.x = -thR; fan.rotation.x = -thR;
+    applyExplode(curExplode); updatePhysics(S.playing ? dt * S.speed : 0);
+    controls.update(); renderer.render(scene, camera);
+    const w = viewer.clientWidth, h = viewer.clientHeight;
+    labels.forEach(L => { const on = L.show(); if (!on) { L.el.hidden = true; return; }
+      proj.copy(L.getPos()).project(camera); if (proj.z > 1 || Math.abs(proj.x) > 1.05 || Math.abs(proj.y) > 1.05) { L.el.hidden = true; return; }
+      L.el.hidden = false; L.el.style.transform = `translate(${((proj.x + 1) / 2 * w).toFixed(1)}px, ${((1 - proj.y) / 2 * h).toFixed(1)}px) translate(-50%, -50%)`; });
+    $("clock").textContent = `ωt = ${(thE / (2 * Math.PI) % 1 * 360).toFixed(0)}° · s = 12 % (visual)`;
+    requestAnimationFrame(frameLoop);
+  }
+  setStep("despiece", false); renderPart(); applyExplode(curExplode);
+  requestAnimationFrame(frameLoop);
+})();
+</script>
+
+</body></html>
